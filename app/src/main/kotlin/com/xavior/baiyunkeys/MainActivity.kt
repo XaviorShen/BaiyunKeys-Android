@@ -5,6 +5,7 @@ import android.os.Bundle
 import androidx.activity.compose.LocalActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -18,6 +19,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -80,6 +82,9 @@ import kotlinx.coroutines.launch
 class MainActivity : FragmentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        // Android 15（API 35）起 targetSdk 35 会强制 edge-to-edge，内容会画到状态栏下面。
+        // 显式开启并在根布局加 safeDrawingPadding()，让新旧系统行为一致。
+        enableEdgeToEdge()
         super.onCreate(savedInstanceState)
 
         // 只在首次创建时吃 Intent：旋转屏幕会重建并带回同一个 Intent，
@@ -104,7 +109,14 @@ class MainActivity : FragmentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background,
                 ) {
-                    AppRoot(container = container, settings = settings)
+                    // 状态栏 / 手势条 / 刘海都不再遮挡内容
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .safeDrawingPadding(),
+                    ) {
+                        AppRoot(container = container, settings = settings)
+                    }
                 }
             }
         }
