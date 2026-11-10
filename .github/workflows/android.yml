@@ -28,8 +28,19 @@ jobs:
           distribution: temurin
           java-version: '21'
 
-      - name: Android SDK
-        uses: android-actions/setup-android@v3
+      # 不用 android-actions/setup-android：它内部会跑 `sdkmanager tools`，
+      # 而 Google 已移除 legacy `tools` 包（报 Warning: Failed to find package 'tools' 后 exit 1）。
+      # GitHub 的 ubuntu 镜像本身自带 Android SDK，这里只补装本项目需要的组件。
+      - name: 准备 Android SDK 组件
+        run: |
+          set -e
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          if [ ! -x "$SDKMANAGER" ]; then SDKMANAGER="$(command -v sdkmanager)"; fi
+          echo "使用 sdkmanager: $SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses > /dev/null 2>&1 || true
+          "$SDKMANAGER" "platform-tools" "platforms;android-36" "build-tools;36.0.0" > /dev/null
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          ls "$ANDROID_HOME/platforms"
 
       - name: Gradle 缓存
         uses: gradle/actions/setup-gradle@v4
@@ -89,8 +100,13 @@ jobs:
           distribution: temurin
           java-version: '21'
 
-      - name: Android SDK
-        uses: android-actions/setup-android@v3
+      - name: 准备 Android SDK 组件
+        run: |
+          set -e
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          if [ ! -x "$SDKMANAGER" ]; then SDKMANAGER="$(command -v sdkmanager)"; fi
+          yes | "$SDKMANAGER" --licenses > /dev/null 2>&1 || true
+          "$SDKMANAGER" "platform-tools" "platforms;android-36" "build-tools;36.0.0" > /dev/null
 
       - name: Gradle 缓存
         uses: gradle/actions/setup-gradle@v4
