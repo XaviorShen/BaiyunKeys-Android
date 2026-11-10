@@ -1,0 +1,109 @@
+name: Android CI
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 检出
+        uses: actions/checkout@v4
+
+      - name: JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Gradle 缓存
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: 授予 gradlew 执行权限
+        run: chmod +x gradlew
+
+      # core 是纯 JVM 模块：协议 golden vectors 全在这里对拍，比装模拟器快得多
+      - name: 协议层单测（golden vectors）
+        run: ./gradlew :core:test --console=plain --stacktrace
+
+      - name: lint
+        run: ./gradlew :app:lintDebug --console=plain
+
+      - name: 构建 debug APK
+        run: ./gradlew :app:assembleDebug --console=plain
+
+      - name: 上传 APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: baiyunkeys-debug-apk
+          path: app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: 上传测试报告
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: core-test-report
+          path: core/build/reports/tests/test
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: 上传 lint 报告
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lint-report
+          path: app/build/reports/lint-results-debug.html
+          if-no-files-found: ignore
+          retention-days: 7
+
+  # 打 tag 时额外发一版 APK 到 Release
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 检出
+        uses: actions/checkout@v4
+
+      - name: JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Gradle 缓存
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: 授予 gradlew 执行权限
+        run: chmod +x gradlew
+
+      - name: 构建 release APK
+        run: ./gradlew :app:assembleRelease --console=plain
+
+      - name: 发布到 Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: app/build/outputs/apk/release/*.apk
+          generate_release_notes: true
+          fail_on_unmatched_files: false

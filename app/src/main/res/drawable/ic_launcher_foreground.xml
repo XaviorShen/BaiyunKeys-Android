@@ -1,0 +1,22 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- 一把钥匙：环 + 齿，居中在 adaptive icon 的安全区内 -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M54,38m-13,0a13,13 0,1 1,26 0a13,13 0,1 1,-26 0" />
+    <path
+        android:fillColor="#0FB981"
+        android:pathData="M54,38m-6,0a6,6 0,1 1,12 0a6,6 0,1 1,-12 0" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M50,50h8v20h-8z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M58,58h10v5h-10z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M58,66h7v5h-7z" />
+</vector>

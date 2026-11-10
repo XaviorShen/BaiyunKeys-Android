@@ -1,0 +1,446 @@
+{
+  "meta": {
+    "generatedAt": "2026-11-10T13:28:38.997Z",
+    "generator": "tools/vectors/gen.mjs",
+    "reference": "BaiyunKeys-iOS/web/js/core (hex.js, des.js, ble-protocol.js)",
+    "timeZone": "Asia/Shanghai",
+    "note": "文本解析向量按 Swift DoorTextParser 语义手推，其余全部由参考实现生成。"
+  },
+  "hex": {
+    "normalize": [
+      {
+        "in": "  aa:bb:cc  ",
+        "out": "AABBCC"
+      },
+      {
+        "in": "abc",
+        "out": "0ABC"
+      },
+      {
+        "in": "",
+        "out": ""
+      },
+      {
+        "in": "00ff",
+        "out": "00FF"
+      },
+      {
+        "in": "ZZ01zz",
+        "out": "01"
+      }
+    ],
+    "bytesFromHex": [
+      {
+        "in": "0011223344556677",
+        "out": "0011223344556677"
+      },
+      {
+        "in": "AABBCCDD",
+        "out": "AABBCCDD"
+      },
+      {
+        "in": "",
+        "out": ""
+      },
+      {
+        "in": "0F",
+        "out": "0F"
+      }
+    ],
+    "formatMac": [
+      {
+        "in": "AA:BB:CC:DD:EE:FF",
+        "out": "AA:BB:CC:DD:EE:FF"
+      },
+      {
+        "in": "aabbccddeeff",
+        "out": "AA:BB:CC:DD:EE:FF"
+      },
+      {
+        "in": "AABBCCDDEEFF",
+        "out": "AA:BB:CC:DD:EE:FF"
+      },
+      {
+        "in": "AA:BB:CC:DD:EE",
+        "out": "AA:BB:CC:DD:EE"
+      },
+      {
+        "in": "",
+        "out": ""
+      },
+      {
+        "in": "xy12",
+        "out": "12"
+      }
+    ],
+    "isValidMac": [
+      {
+        "in": "AA:BB:CC:DD:EE:FF",
+        "out": true
+      },
+      {
+        "in": "aa:bb:cc:dd:ee:ff",
+        "out": true
+      },
+      {
+        "in": "AA:BB:CC:DD:EE",
+        "out": false
+      },
+      {
+        "in": "AABBCCDDEEFF",
+        "out": false
+      },
+      {
+        "in": "AA:BB:CC:DD:EE:FF:00",
+        "out": false
+      },
+      {
+        "in": "",
+        "out": false
+      }
+    ],
+    "isValidKey": [
+      {
+        "in": "0011223344556677",
+        "out": true
+      },
+      {
+        "in": "A1B2C3D4E5F60718",
+        "out": true
+      },
+      {
+        "in": "ABCD",
+        "out": false
+      },
+      {
+        "in": "ABC",
+        "out": false
+      },
+      {
+        "in": "",
+        "out": false
+      },
+      {
+        "in": "00112233445566778899AABBCCDDEEFF0011",
+        "out": false
+      }
+    ],
+    "sanitizeKey": [
+      {
+        "in": "00:11-22 33",
+        "out": "00112233"
+      },
+      {
+        "in": "a1b2c3",
+        "out": "A1B2C3"
+      },
+      {
+        "in": "ZZ",
+        "out": ""
+      }
+    ],
+    "reversedPairs": [
+      {
+        "in": "AABBCC",
+        "out": "CCBBAA"
+      },
+      {
+        "in": "AABBCCDD",
+        "out": "DDCCBBAA"
+      },
+      {
+        "in": "ABCDE",
+        "out": "DEBCA"
+      }
+    ],
+    "ascii": [
+      {
+        "in": "BY0AABBCCDD",
+        "out": "4259304141424243434444"
+      },
+      {
+        "in": "ABC",
+        "out": "414243"
+      },
+      {
+        "in": "",
+        "out": ""
+      }
+    ],
+    "hexSlice": [
+      {
+        "in": "AABBCCDDEEFF",
+        "start": 0,
+        "len": 2,
+        "out": "AA"
+      },
+      {
+        "in": "AABBCCDDEEFF",
+        "start": 3,
+        "len": 4,
+        "out": "BCCD"
+      },
+      {
+        "in": "AABBCCDDEEFF",
+        "start": 20,
+        "len": 16,
+        "out": ""
+      },
+      {
+        "in": "AABBCCDDEEFF",
+        "start": 10,
+        "len": 16,
+        "out": "FF"
+      },
+      {
+        "in": "AABBCCDDEEFF",
+        "start": -1,
+        "len": 2,
+        "out": ""
+      }
+    ]
+  },
+  "des": [
+    {
+      "keyHex": "00112233445566778899AABBCCDDEEFF",
+      "blockHex": "0001020304050607",
+      "enc": "958938747CA7F380",
+      "dec": "0001020304050607"
+    },
+    {
+      "keyHex": "A1B2C3D4E5F60718",
+      "blockHex": "3C910FA73C910FA7",
+      "enc": "3FB3826772107F1D",
+      "dec": "3C910FA73C910FA7"
+    },
+    {
+      "keyHex": "FFFFFFFFFFFFFFFF",
+      "blockHex": "0000000000000000",
+      "enc": "CAAAAF4DEAF1DBAE",
+      "dec": "0000000000000000"
+    },
+    {
+      "keyHex": "0123456789ABCDEF",
+      "blockHex": "A5A5A5A55A5A5A5A",
+      "enc": "D610FE841508226D",
+      "dec": "A5A5A5A55A5A5A5A"
+    }
+  ],
+  "frames": {
+    "handshake": [
+      {
+        "random": [
+          60,
+          145,
+          15,
+          167
+        ],
+        "mac": "00:0A:AB:BC:CD:DD",
+        "productKey": "00112233445566778899AABBCCDDEEFF",
+        "out": "A51405ABBCCDDD00010747E7BF816E39C46B8A5A"
+      },
+      {
+        "random": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "mac": "00:0A:AB:BC:CD:DD",
+        "productKey": "A1B2C3D4E5F60718",
+        "out": "A51405ABBCCDDD0001077C88F86F78DFC1F3585A"
+      },
+      {
+        "random": [
+          255,
+          255,
+          16,
+          1
+        ],
+        "mac": "11:22:33:44:55:66",
+        "productKey": "00112233445566778899AABBCCDDEEFF",
+        "out": "A51405334455660001071B4BA8C517AD2124D15A"
+      }
+    ],
+    "commKey": [
+      {
+        "random": [
+          60,
+          145,
+          15,
+          167
+        ],
+        "bluetoothName": "BY0AABBCCDD",
+        "productKey": "00112233445566778899AABBCCDDEEFF",
+        "out": "A51601AABBCCDD0000910509B755B9BEC3D89F7D025A"
+      },
+      {
+        "random": [
+          17,
+          34,
+          51,
+          68
+        ],
+        "bluetoothName": "BLE123456789",
+        "productKey": "A1B2C3D4E5F60718",
+        "out": "A51601123456780000BE4C09210F26EE4C2A5D4D5E5A"
+      }
+    ],
+    "timeSync": [
+      {
+        "timeBytes": [
+          38,
+          1,
+          15,
+          10,
+          20,
+          30,
+          4
+        ],
+        "bluetoothName": "BY0AABBCCDD",
+        "sessionKey": "5A6B7C8D9E0FA1B2",
+        "out": "A51601AABBCCDD0000842C066DDE09AC8A7FEFF03D5A"
+      },
+      {
+        "timeBytes": [
+          37,
+          12,
+          31,
+          23,
+          59,
+          59,
+          3
+        ],
+        "bluetoothName": "BY112233445",
+        "sessionKey": "5A6B7C8D9E0FA1B2",
+        "out": "A516011223344500008E6206CDC1E505254E00E9715A"
+      }
+    ]
+  },
+  "deviceId": [
+    {
+      "name": "BY0AABBCCDD",
+      "parts": "AABBCCDD",
+      "derivedMac": "00:00:AA:BB:CC:DD"
+    },
+    {
+      "name": "BLE123456789",
+      "parts": "12345678",
+      "derivedMac": "00:0E:12:34:56:78"
+    },
+    {
+      "name": "BY112233445",
+      "parts": "12233445",
+      "derivedMac": "00:01:12:23:34:45"
+    }
+  ],
+  "timeHex": [
+    {
+      "local": "2026-01-15T10:20:30",
+      "zone": "Asia/Shanghai",
+      "hex": "26011510203004"
+    },
+    {
+      "local": "2025-12-31T23:59:59",
+      "zone": "Asia/Shanghai",
+      "hex": "25123123595903"
+    },
+    {
+      "local": "2030-06-01T00:00:00",
+      "zone": "Asia/Shanghai",
+      "hex": "30060100000006"
+    },
+    {
+      "local": "2026-11-08T09:05:07",
+      "zone": "Asia/Shanghai",
+      "hex": "26110809050700"
+    }
+  ],
+  "openResult": [
+    {
+      "frameHex": "A51405000AABBC0001072462DB7FDC0060DA005A",
+      "productKey": "00112233445566778899AABBCCDDEEFF",
+      "code": "00",
+      "message": "开门成功",
+      "isSuccess": true
+    },
+    {
+      "frameHex": "A51405000AABBC000107F45E69898DF21957005A",
+      "productKey": "00112233445566778899AABBCCDDEEFF",
+      "code": "02",
+      "message": "门已打开",
+      "isSuccess": true
+    },
+    {
+      "frameHex": "A51405000AABBC00010744D42905668246CB005A",
+      "productKey": "00112233445566778899AABBCCDDEEFF",
+      "code": "0F",
+      "message": "开门失败，密码无效",
+      "isSuccess": false
+    },
+    {
+      "frameHex": "A51405",
+      "productKey": "00112233445566778899AABBCCDDEEFF",
+      "code": "FF",
+      "message": "数据长度不足，无法解析回执",
+      "isSuccess": false
+    }
+  ],
+  "commKeyBody": [
+    {
+      "bodyHex": "2462DB7FDC0060DAE317BAA54604367F",
+      "productKey": "00112233445566778899AABBCCDDEEFF",
+      "out": "5A6B7C8D9E0FA1B2"
+    },
+    {
+      "bodyHex": "AABB",
+      "productKey": "00112233445566778899AABBCCDDEEFF",
+      "out": ""
+    }
+  ],
+  "textParser": [
+    {
+      "text": "门禁名称：一号楼大门\n门禁 MAC：00:0A:AB:BC:CD:DD\n门禁 Key：00112233445566778899AABBCCDDEEFF\n蓝牙名称：by0aabbccdd",
+      "doors": [
+        {
+          "name": "一号楼大门",
+          "mac": "00:0A:AB:BC:CD:DD",
+          "key": "00112233445566778899AABBCCDDEEFF",
+          "bluetoothName": "BY0AABBCCDD"
+        }
+      ]
+    },
+    {
+      "text": "门禁名称：二号楼侧门\n门禁 MAC：112233445566\n门禁 Key：A1B2C3D4E5F60718\n蓝牙名称：BY112233445\n\n门禁名称：三号楼\n门禁 MAC：AABBCCDDEEFF\n门禁 Key：0011223344556677",
+      "doors": [
+        {
+          "name": "二号楼侧门",
+          "mac": "11:22:33:44:55:66",
+          "key": "A1B2C3D4E5F60718",
+          "bluetoothName": "BY112233445"
+        },
+        {
+          "name": "三号楼",
+          "mac": "AA:BB:CC:DD:EE:FF",
+          "key": "0011223344556677",
+          "bluetoothName": ""
+        }
+      ]
+    },
+    {
+      "text": "门禁名称:不完整\n门禁 MAC:AABBCCDDEEFF\n\n门禁名称=完整\n门禁 MAC=112233445566\n门禁 Key=0011223344556677",
+      "doors": [
+        {
+          "name": "完整",
+          "mac": "11:22:33:44:55:66",
+          "key": "0011223344556677",
+          "bluetoothName": ""
+        }
+      ]
+    },
+    {
+      "text": "",
+      "doors": []
+    }
+  ]
+}

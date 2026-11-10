@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">白云钥匙</string>
+
+    <string name="shortcut_unlock">立即开锁</string>
+    <string name="shortcut_unlock_long">开当前选中的门禁</string>
+    <string name="shortcut_quick">快速模式</string>
+    <string name="shortcut_quick_long">扫描附近任一门禁并开锁</string>
+    <string name="tile_label">开锁</string>
+</resources>

@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- 立即开锁：打开 App 并开当前选中的门禁（对应 iOS「立即开锁」App Intent） -->
+    <shortcut
+        android:enabled="true"
+        android:shortcutId="unlock_now"
+        android:shortcutLongLabel="@string/shortcut_unlock_long"
+        android:shortcutShortLabel="@string/shortcut_unlock">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:data="baiyunkeys://unlock"
+            android:targetClass="com.xavior.baiyunkeys.MainActivity"
+            android:targetPackage="com.xavior.baiyunkeys" />
+    </shortcut>
+
+    <!-- 快速模式：扫到附近任一门禁就开 -->
+    <shortcut
+        android:enabled="true"
+        android:shortcutId="unlock_quick"
+        android:shortcutLongLabel="@string/shortcut_quick_long"
+        android:shortcutShortLabel="@string/shortcut_quick">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:data="baiyunkeys://unlock?quick=1"
+            android:targetClass="com.xavior.baiyunkeys.MainActivity"
+            android:targetPackage="com.xavior.baiyunkeys" />
+    </shortcut>
+
+</shortcuts>

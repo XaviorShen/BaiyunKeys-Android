@@ -1,0 +1,64 @@
+[versions]
+# 版本策略：AGP 停在 8.x（14 天前的最新 LTS 线），因此 compileSdk 上限 36、
+# androidx 依赖必须挑「不要求 compileSdk 37 / AGP 9.1」的那批。
+# 2026.09 之后的 Compose / core / lifecycle 都硬性要求 compileSdk 37，故此处刻意降档，
+# 见 docs/reference-findings.md §9。升级到 AGP 9 时再统一抬上去。
+agp = "8.13.2"
+kotlin = "2.3.21"
+composeBom = "2026.06.01"
+coreKtx = "1.17.0"
+activityCompose = "1.11.0"
+lifecycleRuntimeKtx = "2.9.4"
+datastore = "1.3.0"
+zxing = "3.5.3"
+camerax = "1.5.3"
+biometric = "1.1.0"
+fragment = "1.8.9"
+glance = "1.1.1"
+bouncycastle = "1.86"
+coroutines = "1.10.2"
+serialization = "1.9.0"
+okhttp = "4.12.0"
+junit = "4.13.2"
+gson = "2.15.0"
+
+[libraries]
+# --- core (纯 JVM) ---
+bouncycastle = { module = "org.bouncycastle:bcprov-jdk18on", version.ref = "bouncycastle" }
+kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "coroutines" }
+kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "coroutines" }
+kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "serialization" }
+okhttp = { module = "com.squareup.okhttp3:okhttp", version.ref = "okhttp" }
+junit = { module = "junit:junit", version.ref = "junit" }
+gson = { module = "com.google.code.gson:gson", version.ref = "gson" }
+
+# --- app (Android) ---
+androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "coreKtx" }
+androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "activityCompose" }
+androidx-lifecycle-runtime-ktx = { module = "androidx.lifecycle:lifecycle-runtime-ktx", version.ref = "lifecycleRuntimeKtx" }
+androidx-lifecycle-runtime-compose = { module = "androidx.lifecycle:lifecycle-runtime-compose", version.ref = "lifecycleRuntimeKtx" }
+androidx-datastore-preferences = { module = "androidx.datastore:datastore-preferences", version.ref = "datastore" }
+zxing-core = { module = "com.google.zxing:core", version.ref = "zxing" }
+androidx-biometric = { module = "androidx.biometric:biometric", version.ref = "biometric" }
+# Biometric 1.1.0 只带 fragment 1.2.5，而 activity 1.11 的 ActivityResultRegistry
+# 会用 >= 0x10000 的 requestCode；老 fragment 的 FragmentActivity 只收 16 位，
+# 于是 startActivityForResult 直接抛 IllegalArgumentException（真机 Android 9 上必崩）。
+androidx-fragment-ktx = { module = "androidx.fragment:fragment-ktx", version.ref = "fragment" }
+androidx-camera-core = { module = "androidx.camera:camera-core", version.ref = "camerax" }
+androidx-camera-camera2 = { module = "androidx.camera:camera-camera2", version.ref = "camerax" }
+androidx-camera-lifecycle = { module = "androidx.camera:camera-lifecycle", version.ref = "camerax" }
+androidx-camera-view = { module = "androidx.camera:camera-view", version.ref = "camerax" }
+androidx-glance-appwidget = { module = "androidx.glance:glance-appwidget", version.ref = "glance" }
+androidx-compose-bom = { module = "androidx.compose:compose-bom", version.ref = "composeBom" }
+androidx-compose-ui = { module = "androidx.compose.ui:ui" }
+androidx-compose-ui-graphics = { module = "androidx.compose.ui:ui-graphics" }
+androidx-compose-ui-tooling = { module = "androidx.compose.ui:ui-tooling" }
+androidx-compose-ui-tooling-preview = { module = "androidx.compose.ui:ui-tooling-preview" }
+androidx-compose-material3 = { module = "androidx.compose.material3:material3" }
+
+[plugins]
+android-application = { id = "com.android.application", version.ref = "agp" }
+kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
+kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
+kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
+kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }

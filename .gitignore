@@ -1,0 +1,19 @@
+# Gradle / 构建产物
+.gradle/
+build/
+core/build/
+app/build/
+*.hprof
+
+# 本机配置
+local.properties
+.kotlin/
+
+# IDE
+.idea/
+*.iml
+.DS_Store
+
+# 日志与临时文件
+*.log
+.tmp/
