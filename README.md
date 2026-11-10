@@ -8,7 +8,7 @@
 >    **尚未在真实门禁设备上完成一次成功开锁**。请自行评估风险后使用。
 > 3. **欢迎提交 Issue**：真机结果、机型适配、协议差异、文档纠错都欢迎反馈。
 
-蓝牙门禁离线开锁，Kotlin + Jetpack Compose，无 GMS 依赖，单 APK。
+蓝牙门禁离线开锁，Kotlin + Jetpack Compose，无 GMS 依赖，单 APK。作者：[Xavior](https://github.com/XaviorShen)。
 
 本项目是 [**BaiyunKeys-iOS**](https://github.com/YiwanGo/BaiyunKeys-iOS) 的 **Android 原生移植**。
 方案设计参考自该项目：通信协议、DES 加解密、门禁数据结构、文本 / 二维码互通格式、色板与交互，
@@ -195,7 +195,7 @@ App 注册了 `baiyunkeys://` scheme，两种格式：
 
 ## 版权与 DMCA / 侵权处理
 
-- **代码版权**：上游 `BaiyunKeys-iOS` © 2026 YiwanGo；Android 移植部分 © 2026 本项目贡献者。条款见 [`LICENSE`](LICENSE)。
+- **代码版权**：上游 `BaiyunKeys-iOS` © 2026 YiwanGo；Android 移植部分 © 2026 **Xavior**（GitHub [@XaviorShen](https://github.com/XaviorShen)）。条款见 [`LICENSE`](LICENSE)。
 - **商标与非官方声明**：「白云钥匙」「平安白云」等名称、标识归各自权利人所有，本项目仅在描述性意义上提及，
   **不代表官方、不构成背书**。
 - **侵权投诉（DMCA / 下架请求）**：若你是权利人或其授权代理，认为本仓库内容侵犯你的合法权益，请任选一种方式：
@@ -225,4 +225,5 @@ App 注册了 `baiyunkeys://` scheme，两种格式：
 ## License
 
 [MIT](LICENSE)
+
 
