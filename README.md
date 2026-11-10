@@ -1,12 +1,15 @@
 # 白云钥匙 · Android 原生版
 
-> ## ⚠️ 请先读这三行
+> ## ⚠️ 请先读这几条
 >
 > 1. **仅静态复刻**：本项目是对 [BaiyunKeys-iOS](https://github.com/YiwanGo/BaiyunKeys-iOS) 的**静态复刻**
 >    （协议逐函数对拍 + UI 复刻），不是官方版本，也不含任何破解能力。
 > 2. **未完成真机端到端测试**：验证止步于单元测试、模拟器 UI、真机蓝牙扫描与超时链路，
 >    **尚未在真实门禁设备上完成一次成功开锁**。请自行评估风险后使用。
-> 3. **欢迎提交 Issue**：真机结果、机型适配、协议差异、文档纠错都欢迎反馈。
+> 3. **由 AI 完成**：本项目代码由 **DeepSeek** 生成（协议移植、UI、测试、文档、构建脚本），
+>    人工负责需求与验收。AI 产出的代码**可能有错误**，与实际设备/机型不符之处欢迎指出。
+> 4. **欢迎提交 Issue / PR**：发现 bug、真机结果、机型适配、协议差异、文档纠错，
+>    都请提 [Issue](../../issues) 或直接发 **Pull Request**，会尽快处理。
 
 蓝牙门禁离线开锁，Kotlin + Jetpack Compose，无 GMS 依赖，单 APK。作者：[Xavior](https://github.com/XaviorShen)。
 
@@ -200,11 +203,10 @@ App 注册了 `baiyunkeys://` scheme，两种格式：
   **不代表官方、不构成背书**。
 - **侵权投诉（DMCA / 下架请求）**：若你是权利人或其授权代理，认为本仓库内容侵犯你的合法权益，请任选一种方式：
 
-  1. 在本仓库提交 **Issue**（标题注明「侵权投诉」），说明**具体文件 / 代码位置**与权利依据；
+  1. 在本仓库提交 [Issue](../../issues)（标题注明「侵权投诉」），说明**具体文件 / 代码位置**与权利依据；
   2. 通过 GitHub 官方的 [DMCA Takedown 流程](https://docs.github.com/site-policy/content-removal-policies/dmca-takedown-policy) 提交。
 
   收到内容明确、依据有效的通知后，维护者会在核实后**尽快删除或修改相关内容**。
-  仓库正式地址：`<填入你的 GitHub 仓库地址>/issues`。
 - **我方立场**：本项目无意侵害任何第三方权利。如果上游作者或相关权利人希望本项目调整、改名或下架，
   我们愿意配合处理。
 
@@ -221,6 +223,8 @@ App 注册了 `baiyunkeys://` scheme，两种格式：
 
 - [**BaiyunKeys-iOS**](https://github.com/YiwanGo/BaiyunKeys-iOS) —— 本项目的方案来源与协议事实源，
   Android 版的协议、数据结构与交互均以其为基准移植。感谢作者以 MIT 许可开放。
+- **[DeepSeek](https://www.deepseek.com/)** —— 本项目的代码实现（协议移植、UI、单元测试、CI 与文档）由 DeepSeek 完成。
+  如在使用中遇到问题，欢迎提交 Issue 或 PR。
 
 ## License
 
