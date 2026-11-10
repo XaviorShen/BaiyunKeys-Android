@@ -1,8 +1,8 @@
 # 白云钥匙 · Android 原生版
 
 [![下载最新构建](https://img.shields.io/badge/%E2%AC%87%20%E4%B8%8B%E8%BD%BD-%E6%9C%80%E6%96%B0%E6%9E%84%E5%BB%BA-0FB981?style=for-the-badge&logo=android&logoColor=white)](https://github.com/XaviorShen/BaiyunKeys-Android/releases/download/latest/BaiyunKeys-Android.apk)
-[![Android CI](https://github.com/XaviorShen/BaiyunKeys-Android/actions/workflows/android.yml/badge.svg?branch=main)](https://github.com/XaviorShen/BaiyunKeys-Android/actions/workflows/android.yml)
-[![License](https://img.shields.io/badge/license-MIT-blue?style=for-the-badge)](LICENSE)
+[![Android CI](https://img.shields.io/github/actions/workflow/status/XaviorShen/BaiyunKeys-Android/android.yml?branch=main&style=for-the-badge&logo=githubactions&logoColor=white&label=Android%20CI)](https://github.com/XaviorShen/BaiyunKeys-Android/actions/workflows/android.yml)
+[![License](https://img.shields.io/badge/License-MIT-blue?style=for-the-badge&logo=opensourceinitiative&logoColor=white)](LICENSE)
 [![Android](https://img.shields.io/badge/Android-9%2B-3DDC84?style=for-the-badge&logo=android&logoColor=white)](#安装)
 
 > ## ⚠️ 请先读这几条
@@ -147,6 +147,26 @@ node tools/vectors/gen.mjs
 # 或显式指定 iOS 仓库路径：
 REF_DIR="/path/to/BaiyunKeys-iOS/web/js/core" node tools/vectors/gen.mjs
 ```
+
+## 与其它实现的静态比对
+
+除与 iOS 版逐函数对拍外，还拿两份公开的 Android 实现做了逐字节比对：
+
+| 项目 | 走的流程 | 比对结果 |
+|---|---|---|
+| [RinkTika/BaiyunKeys](https://github.com/RinkTika/BaiyunKeys) | 完整流程（握手 → 通讯密钥 → 时间同步 → 回执） | 握手帧、DES 密钥处理、`openResult`、`timeHex` **逐字节一致** |
+| [yy1643/baiyunkey--](https://github.com/yy1643/baiyunkey--) | 简化流程（握手 → 校验 0x04 回执） | 握手帧一致；0x04 回执的校验方式不同（见下） |
+
+比对中发现并处理的两点：
+
+1. **通讯密钥帧的校验和范围**：两份实现都只把随机数的**前 4 字节**计入 sum/xor，我们原来用了全长。
+   已修正（当前流程并不调用该指令，属于潜在坑，不是现网 bug）。
+2. **0x04 回执的判定**：yy1643 会解密 `[10..17]` 并要求状态字节 `payload[2] == 0` 才算成功；
+   iOS 版（本项目的事实源）把长帧直接当成功。真机没验过之前不擅自改判定，
+   但已把**长度字节 / 校验和 / 解密后的状态字节**写进运行日志——真机跑一次就能看出该信谁。
+
+另外确认：`commKey` / `timeSync` 两条指令在 iOS 版里**从未被调用**（只有定义），本项目保持一致，
+属于协议预留，不是漏实现。
 
 ## URL scheme
 

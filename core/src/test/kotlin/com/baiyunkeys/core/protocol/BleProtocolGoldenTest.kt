@@ -7,6 +7,7 @@ import com.baiyunkeys.core.str
 import com.google.gson.JsonObject
 import java.time.LocalDateTime
 import java.time.ZoneId
+import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -103,10 +104,28 @@ class BleProtocolGoldenTest {
         }
     }
 
+    /**
+     * 通讯密钥协商帧的 sum/xor 只覆盖**前 4 字节**随机数。
+     *
+     * 对照 RinkTika/BaiyunKeys 与小程序实现（`random.copyOf(4)`）：
+     * 门锁下发的随机数若超过 4 字节，多出来的部分不能进校验和。
+     */
+    @Test
+    fun commKeyBodyIgnoresRandomBeyondFirstFourBytes() {
+        val key = "00112233445566778899AABBCCDDEEFF"
+        val name = "BY0AABBCCDD"
+        val four = byteArrayOf(0x3C, 0x91.toByte(), 0x0F, 0xA7.toByte())
+        val eight = four + byteArrayOf(0x11, 0x22, 0x33, 0x44)
+
+        assertArrayEquals(
+            BleProtocol.commKeyCommand(four, name, key),
+            BleProtocol.commKeyCommand(eight, name, key),
+        )
+    }
+
     /** 校验和必须落在倒数第二字节：`~Σ & 0xFF`。 */
     @Test
-    fun checksumIsInPenultimateByte() {
-        val frame = BleProtocol.handshakeCommand(
+    fun checksumIsInPenultimateByte() {        val frame = BleProtocol.handshakeCommand(
             random = byteArrayOf(0x01, 0x02, 0x03, 0x04),
             header = BleProtocol.headerFromMac("00:0A:AB:BC:CD:DD"),
             productKey = "00112233445566778899AABBCCDDEEFF",

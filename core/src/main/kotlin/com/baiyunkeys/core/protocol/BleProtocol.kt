@@ -90,7 +90,9 @@ object BleProtocol {
         val encrypted = Hex.bytesFromHex(
             DesBlock.encryptBlock(keyHex = productKey, blockHex = Hex.hexFromBytes(pivot)),
         )
-        val body = ids + byteArrayOf(0x00, 0x00) + random
+        // 校验和只覆盖前 4 字节随机数：RinkTika/BaiyunKeys 与小程序实现都是 `random.copyOf(4)`，
+        // 门锁下发的随机数若超过 4 字节，多出来的部分不能进 sum/xor。
+        val body = ids + byteArrayOf(0x00, 0x00) + random.copyOf(4)
         return sealed(payloadFrame(ids, body, TYPE_COMM_KEY, encrypted))
     }
 

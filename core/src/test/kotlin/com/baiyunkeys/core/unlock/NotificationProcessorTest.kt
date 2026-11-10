@@ -23,6 +23,42 @@ class NotificationProcessorTest {
         assertEquals("握手成功，门锁已执行开锁", terminal?.message)
     }
 
+    /**
+     * 0x04 长帧要带诊断日志（长度 / 校验和 / 解密后的状态字节）。
+     *
+     * 判定本身仍按 iOS 的「长帧即成功」，这里只保证真机排查时能看到状态字节。
+     */
+    @Test
+    fun handshakeLongFrameLogsDiagnostics() {
+        val processor = NotificationProcessor(productKey)
+        val logs = processor.process(TestFrames.handshakeOk())
+            .filterIsInstance<ProtocolEvent.Log>()
+            .joinToString("\n") { it.text }
+        assertTrue("应记录 0x04 诊断：$logs", logs.contains("0x04 回执诊断"))
+        assertTrue("应记录校验和结论：$logs", logs.contains("校验和"))
+        assertTrue("应记录状态字节：$logs", logs.contains("状态字节"))
+    }
+
+    /** 构造一个 20 字节、状态字节为 00 的 0x04 回执，诊断应解出「0x00（成功）」。 */
+    @Test
+    fun handshakeLongFrameDecryptsStatusByte() {
+        val plain = "0000" + "00" + "0".repeat(10) // 16 hex = 8 字节，第 3 字节 = 00
+        val enc = com.baiyunkeys.core.crypto.DesBlock.encryptBlock(productKey, plain)
+        val head = com.baiyunkeys.core.hex.Hex.bytesFromHex("A51404AABBCCDD000000" + enc)
+        val sum = head.sumOf { it.toInt() and 0xFF }
+        val frame = head + byteArrayOf(((sum.inv()) and 0xFF).toByte(), 0x5A)
+        val hex = com.baiyunkeys.core.hex.Hex.hexFromBytes(frame)
+
+        val processor = NotificationProcessor(productKey)
+        val logs = processor.process(hex)
+            .filterIsInstance<ProtocolEvent.Log>()
+            .joinToString("\n") { it.text }
+
+        assertTrue("长度应为 20 字节：$logs", logs.contains("长度 20/20 字节"))
+        assertTrue("校验和应正确：$logs", logs.contains("校验和正确"))
+        assertTrue("状态字节应解出 00：$logs", logs.contains("0x00（成功）"))
+    }
+
     @Test
     fun handshakeShortFrameCarriesStatusCode() {
         val processor = NotificationProcessor(productKey)

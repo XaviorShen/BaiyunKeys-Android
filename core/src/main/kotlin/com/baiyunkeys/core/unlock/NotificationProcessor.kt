@@ -60,6 +60,7 @@ class NotificationProcessor(private val productKey: String) {
             if (hex.length > 24) {
                 handshakeOk = true
                 events += ProtocolEvent.Log("握手成功")
+                events += diagnose04(hex)
                 events += ProtocolEvent.Terminal(true, "握手成功，门锁已执行开锁")
             } else {
                 val statusField = Hex.hexSlice(hex, 14, 4)
@@ -133,5 +134,43 @@ class NotificationProcessor(private val productKey: String) {
             }
         }
         return events
+    }
+
+    /**
+     * `0x04` 长帧的诊断信息（**只记录，不改变判定**）。
+     *
+     * 另一份公开实现（yy1643/baiyunkey--）在收到 0x04 时会解密 `[10..17]` 的密文，
+     * 要求状态字节 `payload[2] == 0` 才算开锁成功；iOS 版（本项目的事实源）则把长帧直接当成功。
+     * 两者对「门锁在握手阶段就执行开锁」这一行为理解不同，真机没验过之前不擅自改判定，
+     * 但把长度字节、校验和、解密后的状态字节都记下来——真机跑一次就能看出该信谁。
+     */
+    private fun diagnose04(hex: String): ProtocolEvent.Log {
+        val actualLen = hex.length / 2
+        val declaredLen = Hex.hexSlice(hex, 2, 2).toIntOrNull(16)
+
+        val checksumOk = runCatching {
+            val bytes = Hex.bytesFromHex(hex)
+            if (bytes.size < 2) return@runCatching false
+            val sum = bytes.take(bytes.size - 2).sumOf { it.toInt() and 0xFF }
+            ((sum.inv()) and 0xFF) == (bytes[bytes.size - 2].toInt() and 0xFF)
+        }.getOrDefault(false)
+
+        val status = runCatching {
+            if (hex.length < 36) return@runCatching ""
+            val plain = BleProtocol.decryptBody(Hex.hexSlice(hex, 20, 16), productKey)
+            if (plain.length >= 6) Hex.hexSlice(plain, 4, 2) else ""
+        }.getOrDefault("")
+
+        val statusText = when (status) {
+            "" -> "无法解密"
+            "00" -> "0x00（成功）"
+            "02" -> "0x02（门已打开）"
+            else -> "0x$status（非 00/02）"
+        }
+        return ProtocolEvent.Log(
+            "0x04 回执诊断：长度 $declaredLen/$actualLen 字节，" +
+                "校验和${if (checksumOk) "正确" else "不符"}，状态字节 $statusText",
+            LogLevel.DEBUG,
+        )
     }
 }
