@@ -25,6 +25,9 @@ android {
         release {
             isMinifyEnabled = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            // 用 debug 签名，让 CI 产出的 release APK 能直接侧载安装。
+            // 这是个人项目/侧载用途的取舍：**不要**拿这个包去上架或当作正式签名分发。
+            signingConfig = signingConfigs.getByName("debug")
         }
     }
 

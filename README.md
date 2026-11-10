@@ -1,5 +1,10 @@
 # 白云钥匙 · Android 原生版
 
+[![下载最新构建](https://img.shields.io/badge/%E2%AC%87%20%E4%B8%8B%E8%BD%BD-%E6%9C%80%E6%96%B0%E6%9E%84%E5%BB%BA-0FB981?style=for-the-badge&logo=android&logoColor=white)](https://github.com/XaviorShen/BaiyunKeys-Android/releases/download/latest/BaiyunKeys-Android.apk)
+[![Android CI](https://github.com/XaviorShen/BaiyunKeys-Android/actions/workflows/android.yml/badge.svg?branch=main)](https://github.com/XaviorShen/BaiyunKeys-Android/actions/workflows/android.yml)
+[![License](https://img.shields.io/badge/license-MIT-blue?style=for-the-badge)](LICENSE)
+[![Android](https://img.shields.io/badge/Android-9%2B-3DDC84?style=for-the-badge&logo=android&logoColor=white)](#安装)
+
 > ## ⚠️ 请先读这几条
 >
 > 1. **仅静态复刻**：本项目是对 [BaiyunKeys-iOS](https://github.com/YiwanGo/BaiyunKeys-iOS) 的**静态复刻**
@@ -26,10 +31,25 @@
 **系统要求：Android 9（API 28）及以上。** 目标机型是主楼门禁旁的旧手机（Android 10），
 为兼容更老的机器把地板上探到 9。
 
-产物是 **debug APK**（未签名发布版）：
+### 直接下载
 
-- 从 GitHub Actions 的最新构建中下载 `baiyunkeys-debug-apk`（见「自动构建」）；
-- 或按下面的「跑起来」自己构建。
+点最上面那个绿色按钮，或直接访问：
+
+```
+https://github.com/XaviorShen/BaiyunKeys-Android/releases/download/latest/BaiyunKeys-Android.apk
+```
+
+这个链接**永远指向 main 分支的最新构建**（每次推送自动重新构建并覆盖），文件名固定，不会失效。
+
+- 想找**正式版本**：去 [Releases](../../releases) 里带 `v*` 标签的条目；
+- 想找**历史构建**：去 [Actions](../../actions) 下载对应运行的 artifact（保留 14 天）。
+
+安装时需要允许「安装未知来源应用」。APK 用 **debug 签名**（个人项目侧载用途），
+不要拿它上架或当作正式签名分发。
+
+### 自己构建
+
+见下面的「跑起来」。
 
 ## 跑起来
 
@@ -99,10 +119,20 @@ Android Studio 直接打开根目录，Gradle 同步后 Run 即可。
 
 ## 自动构建
 
-`.github/workflows/android.yml`：
+`.github/workflows/android.yml`，三个 job：
 
-- 每次 push / PR / 手动触发：跑 `:core:test`（协议层对拍）→ `:app:lintDebug` → 构建 debug APK → 上传产物；
-- 打 `v*` tag：额外构建一版 APK 并附到 Release。
+| 触发 | 做什么 | 产物 |
+|---|---|---|
+| push / PR / 手动 | `:core:test` → `:app:lintDebug` → `:app:assembleDebug` | Actions artifact（保留 14 天） |
+| push 到 `main` | 上面全部 + 更新滚动 Release `latest` | `BaiyunKeys-Android.apk`（README 按钮指向这里） |
+| 打 `v*` tag | `:app:assembleRelease` + 生成 Release Notes | 正式 Release 的 `BaiyunKeys-Android.apk` |
+
+发版只需：
+
+```bash
+git tag v1.0.0
+git push origin v1.0.0
+```
 
 ## 测试
 

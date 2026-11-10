@@ -14,7 +14,12 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  # 固定资产名：README 里的下载按钮指向这个文件名，改名会让链接失效
+  APK_NAME: BaiyunKeys-Android.apk
+
 jobs:
+  # ── 1. 单测 + lint + 构建 ────────────────────────────────────────────────
   build:
     runs-on: ubuntu-latest
 
@@ -29,8 +34,8 @@ jobs:
           java-version: '21'
 
       # 不用 android-actions/setup-android：它内部会跑 `sdkmanager tools`，
-      # 而 Google 已移除 legacy `tools` 包（报 Warning: Failed to find package 'tools' 后 exit 1）。
-      # GitHub 的 ubuntu 镜像本身自带 Android SDK，这里只补装本项目需要的组件。
+      # 而 Google 已移除 legacy `tools` 包（Failed to find package 'tools' 后 exit 1）。
+      # GitHub 的 ubuntu 镜像自带 Android SDK，这里只补装本项目需要的组件。
       - name: 准备 Android SDK 组件
         run: |
           set -e
@@ -39,7 +44,6 @@ jobs:
           echo "使用 sdkmanager: $SDKMANAGER"
           yes | "$SDKMANAGER" --licenses > /dev/null 2>&1 || true
           "$SDKMANAGER" "platform-tools" "platforms;android-36" "build-tools;36.0.0" > /dev/null
-          echo "ANDROID_HOME=$ANDROID_HOME"
           ls "$ANDROID_HOME/platforms"
 
       - name: Gradle 缓存
@@ -58,11 +62,17 @@ jobs:
       - name: 构建 debug APK
         run: ./gradlew :app:assembleDebug --console=plain
 
-      - name: 上传 APK
+      - name: 统一 APK 文件名
+        run: |
+          mkdir -p dist
+          cp app/build/outputs/apk/debug/app-debug.apk "dist/$APK_NAME"
+          ls -lh dist
+
+      - name: 上传 APK（Actions 产物）
         uses: actions/upload-artifact@v4
         with:
           name: baiyunkeys-debug-apk
-          path: app/build/outputs/apk/debug/*.apk
+          path: dist/${{ env.APK_NAME }}
           if-no-files-found: error
           retention-days: 14
 
@@ -84,7 +94,41 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
-  # 打 tag 时额外发一版 APK 到 Release
+  # ── 2. main 分支每次构建 → 滚动更新 `latest` Release ────────────────────
+  # README 的下载按钮指向：
+  #   https://github.com/<owner>/<repo>/releases/download/latest/BaiyunKeys-Android.apk
+  # 用固定 tag `latest` 而不是 releases/latest，这样无论有没有正式版本，链接都有效。
+  publish-latest:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 下载构建产物
+        uses: actions/download-artifact@v4
+        with:
+          name: baiyunkeys-debug-apk
+          path: dist
+
+      - name: 发布 / 更新 latest Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest
+          name: 最新构建（main 分支自动构建）
+          prerelease: true
+          make_latest: false
+          fail_on_unmatched_files: true
+          body: |
+            由 GitHub Actions 在每次推送到 `main` 时自动构建，**不是正式版本**。
+
+            - 提交：`${{ github.sha }}`
+            - 构建时间：${{ github.event.head_commit.timestamp }}
+            - 内容：debug 签名 APK，可直接侧载安装（需允许「安装未知来源应用」）
+
+            正式版本请看 [Releases](../../releases) 里带 `v*` 标签的条目。
+          files: dist/${{ env.APK_NAME }}
+
+  # ── 3. 打 v* tag → 正式 Release ─────────────────────────────────────────
   release:
     if: startsWith(github.ref, 'refs/tags/v')
     needs: build
@@ -117,9 +161,16 @@ jobs:
       - name: 构建 release APK
         run: ./gradlew :app:assembleRelease --console=plain
 
-      - name: 发布到 Release
+      - name: 统一 APK 文件名
+        run: |
+          mkdir -p dist
+          cp app/build/outputs/apk/release/app-release.apk "dist/$APK_NAME"
+          ls -lh dist
+
+      - name: 发布正式 Release
         uses: softprops/action-gh-release@v2
         with:
-          files: app/build/outputs/apk/release/*.apk
+          name: ${{ github.ref_name }}
           generate_release_notes: true
-          fail_on_unmatched_files: false
+          fail_on_unmatched_files: true
+          files: dist/${{ env.APK_NAME }}
