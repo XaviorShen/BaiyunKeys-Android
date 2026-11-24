@@ -359,11 +359,15 @@ class UnlockOrchestrator(
         return "发现 $seen 台蓝牙设备，但没有一台与${what}匹配。可以到「配置 → 打开扫描面板」手动选择门锁"
     }
 
-    /** 定位没开时，如果这条门禁的 MAC 是按蓝牙名反推的，顺带告诉用户补填真实 MAC 可以不走扫描。 */
+    /**
+     * 定位没开时，如果这条门禁的 MAC 是按蓝牙名反推的，顺带告诉用户怎样才能不走扫描：
+     * 在扫描面板里绑定门锁，或者补填真实 MAC。
+     */
     private fun locationOffMessage(door: DoorConfig): String {
         val base = LocationServiceDisabledException.MESSAGE
         return if (MacOrigin.looksDerivedFromName(door.mac, door.bluetoothName)) {
-            "$base。这条门禁的 MAC 是按蓝牙名反推的，没法直连；在配置里补填真实 MAC 后，可以不扫描直接连接"
+            "$base。这条门禁的 MAC 是按蓝牙名反推的，没法直连。" +
+                "到「配置 → 打开扫描面板」找到门锁后点「绑定」，或者补填真实 MAC，之后就能不扫描直接连接"
         } else {
             base
         }
