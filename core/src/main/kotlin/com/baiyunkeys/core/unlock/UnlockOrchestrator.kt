@@ -2,6 +2,7 @@ package com.baiyunkeys.core.unlock
 
 import com.baiyunkeys.core.hex.Hex
 import com.baiyunkeys.core.model.DoorConfig
+import com.baiyunkeys.core.model.MacOrigin
 import com.baiyunkeys.core.protocol.BleProtocol
 import java.time.Clock
 import java.time.Instant
@@ -25,11 +26,20 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 
 /**
- * 蓝牙开锁流程编排：扫描 → 连接 → 找服务 → 订阅 → 读随机数 → 握手 → 等回执。
+ * 蓝牙开锁流程编排：直连 → 扫描 → 连接 → 找服务 → 订阅 → 读随机数 → 握手 → 等回执。
  *
  * 对照 `BaiyunKeys-iOS/BaiyunKeys/Core/UnlockService.swift`（756 行）逐段移植：
  * 委托回调改成挂起函数 + `withTimeoutOrNull`，`DispatchWorkItem` 定时器改成超时，
  * 但 **阶段、超时值、重试语义、静默模式、分片缓存、日志格式** 全部保持原样。
+ *
+ * 与 iOS 的一处有意不同：**找门锁先直连、后扫描**。iOS 拿不到 MAC，只能靠广播名；
+ * 安卓有真实 MAC 时可以直接 `connectGatt`，不依赖广播，也不受系统定位开关影响（issue #5）。
+ * 顺序是「缓存地址 → 门禁 MAC → 扫描」：
+ * - 缓存地址：上次连上的设备，沿用现有的 8 秒预算；
+ * - 门禁 MAC：用 [UnlockTimeouts.directConnectMs]，并跳过占位地址和按蓝牙名反推的 `00:0X:` 地址；
+ * - 扫描：直连失败后的兜底，匹配规则不变。
+ *
+ * 快速模式不直连（要按现场信号挑最近的门禁）；静默模式只认缓存地址，与 iOS 一致。
  *
  * 四个入口：
  * - [unlock] 单门锁
@@ -82,6 +92,12 @@ class UnlockOrchestrator(
     private var currentTarget: DoorConfig? = null
     private var currentDeviceId: String? = null
     private var silentMode = false
+
+    /** 直连失败、但同一轮里扫描连上了的门锁：记录判定时刻，冷却期内不再先直连。 */
+    private val directUnsupportedAt = mutableMapOf<String, Long>()
+
+    /** 本轮已经直连失败过的门锁：同一轮的自动重试不再直连。 */
+    private var directFailedDoor: String? = null
 
     // MARK: - 入口
 
@@ -226,41 +242,46 @@ class UnlockOrchestrator(
         _bluetoothIssue.value = null
         log("蓝牙适配器已就绪")
 
-        // ① 缓存直连：单门锁模式命中缓存就跳过扫描（快速模式不参与）
-        val cachedId = if (request is Request.AnyOf) null else request.primaryDoor.cachedPeripheralId
+        val door = request.primaryDoor
 
-        val session: BleSession = if (cachedId != null) {
-            log("命中缓存设备，直接连接 ${cachedId.take(8)}…")
-            when (val connected = connect(cachedId, request.primaryDoor.id)) {
-                is ConnectResult.Timeout -> return Outcome.Retryable(CONNECT_TIMEOUT_MESSAGE)
-                is ConnectResult.Failed -> return Outcome.Retryable(connected.message)
-                is ConnectResult.Ok -> connected.session
+        // ① 直连：缓存地址 → 真实 MAC。快速模式不参与；推导值与占位地址不参与
+        val target = if (request is Request.AnyOf) null else directTarget(door)
+        if (target != null) {
+            val viaCache = target == door.cachedPeripheralId
+            log(if (viaCache) "命中缓存设备，直接连接 ${target.take(8)}…" else "按 MAC 直连 ${target.take(8)}…")
+            val budget = if (viaCache) timeouts.connectMs else timeouts.directConnectMs
+            when (val connected = connect(target, budget)) {
+                is ConnectResult.Ok -> {
+                    directUnsupportedAt.remove(door.id)
+                    return withSession(connected.session, request)
+                }
+                is ConnectResult.Timeout -> log("直连 ${target.take(8)}… 超时，改为扫描", LogLevel.WARN)
+                is ConnectResult.Failed ->
+                    log("直连 ${target.take(8)}… 失败（${connected.message}），改为扫描", LogLevel.WARN)
             }
-        } else {
-            if (options.silent) return Outcome.SilentAbort("静默模式无缓存设备，跳过")
-
-            val match = scanFor(request, options)
-                ?: return Outcome.Retryable("扫描超时，未找到门锁，请靠近后重试")
-            if (request is Request.AnyOf) {
-                log("快速模式命中：${match.door.displayName}（RSSI ${match.hit.rssi}）")
-            } else {
-                log("匹配到门锁 ${match.hit.name ?: match.hit.deviceId}（RSSI ${match.hit.rssi}）")
-            }
-            currentTarget = match.door
-            when (val connected = connect(match.hit.deviceId, match.door.id)) {
-                is ConnectResult.Timeout -> return Outcome.Retryable(CONNECT_TIMEOUT_MESSAGE)
-                is ConnectResult.Failed -> return Outcome.Retryable(connected.message)
-                is ConnectResult.Ok -> connected.session
-            }
+            directFailedDoor = door.id
         }
 
-        try {
-            activeSession = session
-            currentDeviceId = session.deviceId
-            return negotiate(session, request)
-        } finally {
-            runCatching { session.close() }
-            activeSession = null
+        // ② 静默模式只走直连，不进扫描
+        if (options.silent) return Outcome.SilentAbort("静默模式无缓存设备，跳过")
+
+        // ③ 扫描
+        val match = scanFor(request, options)
+            ?: return Outcome.Retryable("扫描超时，未找到门锁，请靠近后重试")
+        if (request is Request.AnyOf) {
+            log("快速模式命中：${match.door.displayName}（RSSI ${match.hit.rssi}）")
+        } else {
+            log("匹配到门锁 ${match.hit.name ?: match.hit.deviceId}（RSSI ${match.hit.rssi}）")
+        }
+        currentTarget = match.door
+        when (val connected = connect(match.hit.deviceId, timeouts.connectMs)) {
+            is ConnectResult.Timeout -> return Outcome.Retryable(CONNECT_TIMEOUT_MESSAGE)
+            is ConnectResult.Failed -> return Outcome.Retryable(connected.message)
+            is ConnectResult.Ok -> {
+                // 门锁在场、能连上，只是直连不行：冷却期内不再先直连
+                if (directFailedDoor == match.door.id) directUnsupportedAt[match.door.id] = clock.millis()
+                return withSession(connected.session, request)
+            }
         }
     }
 
@@ -294,19 +315,50 @@ class UnlockOrchestrator(
         }
     }
 
-    private suspend fun connect(deviceId: String, doorId: String): ConnectResult {
+    private suspend fun connect(deviceId: String, timeoutMs: Long): ConnectResult {
         _phase.value = UnlockPhase.Connecting
         _statusText.value = "正在连接门锁…"
         log("连接设备 $deviceId")
         return try {
-            val session = withTimeoutOrNull(timeouts.connectMs) { ble.connect(deviceId, timeouts.connectMs) }
+            val session = withTimeoutOrNull(timeoutMs) { ble.connect(deviceId, timeoutMs) }
             if (session == null) ConnectResult.Timeout else ConnectResult.Ok(session)
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            // 连接失败要把缓存清掉，否则下次还会拿着坏缓存去直连
-            peripheralCache.clear(doorId)
+            // 连接失败不清缓存：缓存里可能是扫描学到的真实地址或手动绑定的地址
             ConnectResult.Failed("连接门锁失败：${e.message ?: "未知错误"}")
+        }
+    }
+
+    /** 直连的目标：缓存地址优先，其次真实 MAC。返回 null 表示本次不直连。 */
+    private fun directTarget(door: DoorConfig): String? {
+        if (directFailedDoor == door.id) return null
+        val unsupportedSince = directUnsupportedAt[door.id]
+        if (unsupportedSince != null && clock.millis() - unsupportedSince < DIRECT_RETRY_COOLDOWN_MS) return null
+        door.cachedPeripheralId?.takeIf(::isConnectableAddress)?.let { return it }
+        if (MacOrigin.looksDerivedFromName(door.mac, door.bluetoothName)) {
+            log("MAC ${door.mac} 是按蓝牙名推算的，不是真实地址，无法直连", LogLevel.DEBUG)
+            return null
+        }
+        return door.mac.takeIf(::isConnectableAddress)
+    }
+
+    /** 合法、且不是占位地址（全 0 / 全 F / 02:00:00:00:00:00）。 */
+    private fun isConnectableAddress(value: String): Boolean {
+        if (!Hex.isValidMac(value)) return false
+        val compact = Hex.sanitizeKey(value)
+        val placeholder = compact.all { it == '0' } || compact.all { it == 'F' } || compact == "020000000000"
+        return !placeholder
+    }
+
+    private suspend fun withSession(session: BleSession, request: Request): Outcome {
+        try {
+            activeSession = session
+            currentDeviceId = session.deviceId
+            return negotiate(session, request)
+        } finally {
+            runCatching { session.close() }
+            activeSession = null
         }
     }
 
@@ -478,6 +530,7 @@ class UnlockOrchestrator(
     private fun setSession(target: DoorConfig?, silent: Boolean, maxAttempts: Int) {
         currentTarget = target
         currentDeviceId = null
+        directFailedDoor = null
         silentMode = silent
         _maxAttempts.value = maxAttempts
         _attempt.value = 0
@@ -566,5 +619,8 @@ class UnlockOrchestrator(
         const val BUSY_MESSAGE = "开锁流程已在进行中"
         const val CONNECT_TIMEOUT_MESSAGE = "连接门锁超时，请靠近门锁后重试"
         private const val BLUETOOTH_READY_TIMEOUT_MS = 2_000L
+
+        /** 判定为「不支持直连」之后，多久以内不再先直连。 */
+        const val DIRECT_RETRY_COOLDOWN_MS = 10 * 60_000L
     }
 }

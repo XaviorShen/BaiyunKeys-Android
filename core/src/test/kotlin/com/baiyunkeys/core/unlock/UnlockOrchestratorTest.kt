@@ -178,11 +178,12 @@ class UnlockOrchestratorTest {
         assertFalse(result.success)
         assertTrue(result.message, result.message.contains("扫描超时"))
         assertEquals(1, r.adapter.scanCalls)
-        assertEquals(0, r.adapter.connectedTo.size)
+        // 直连优先：扫描之前先有一次失败的直连尝试
+        assertEquals(1, r.adapter.connectedTo.size)
     }
 
     @Test
-    fun connectFailureClearsPeripheralCache() = runTest {
+    fun connectFailureKeepsPeripheralCache() = runTest {
         val adapter = FakeBleAdapter(hits = listOf(hit()))
         adapter.connectError = IllegalStateException("GATT 133")
         val history = FakeHistory()
@@ -193,7 +194,9 @@ class UnlockOrchestratorTest {
 
         assertFalse(result.success)
         assertTrue(result.message, result.message.contains("连接门锁失败"))
-        assertTrue("失败后必须清缓存，否则下次还会拿坏 MAC 直连", cache.cleared.contains("door_1"))
+        // 连接失败不清缓存：缓存里可能是扫描学到的真实地址或手动绑定的地址
+        assertEquals("AA:BB:CC:DD:EE:FF", cache.cached["door_1"])
+        assertTrue(cache.cleared.isEmpty())
     }
 
     @Test

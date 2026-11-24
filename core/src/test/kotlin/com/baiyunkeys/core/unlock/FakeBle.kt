@@ -105,16 +105,27 @@ class FakeBleAdapter(
     var scanCalls: Int = 0
         private set
     val connectedTo = mutableListOf<String>()
+
+    /** 每次连接传入的预算，按调用顺序记录。 */
+    val connectBudgets = mutableListOf<Long>()
     var session: FakeBleSession? = null
     var connectError: Throwable? = null
 
     /** 扫描时直接抛异常（模拟缺权限 / 适配器被关掉）。 */
     var scanError: Throwable? = null
 
+    /**
+     * 这些地址在广播，但不先扫描就连不上：模拟不支持 MAC 直连的门锁
+     * （必须先被扫描发现，之后才连得上）。
+     */
+    var directUnsupported: Set<String> = emptySet()
+    private val seenViaScan = mutableSetOf<String>()
+
     override fun scan(filter: ScanFilter, allowDuplicates: Boolean): Flow<ScanHit> = flow {
         scanCalls++
         scanError?.let { throw it }
         for (hit in hits) {
+            seenViaScan += hit.deviceId
             emit(hit)
             delay(5)
         }
@@ -124,7 +135,12 @@ class FakeBleAdapter(
 
     override suspend fun connect(deviceId: String, timeoutMs: Long): BleSession {
         connectedTo += deviceId
+        connectBudgets += timeoutMs
         connectError?.let { throw it }
+        // 贴近现实：在广播的设备才连得上；不支持直连的门锁要先被扫描发现
+        val advertising = hits.any { it.deviceId == deviceId }
+        val directly = deviceId !in directUnsupported || deviceId in seenViaScan
+        if (!advertising || !directly) throw IllegalStateException("连接门锁超时")
         return session ?: FakeBleSession(deviceId).also { session = it }
     }
 }

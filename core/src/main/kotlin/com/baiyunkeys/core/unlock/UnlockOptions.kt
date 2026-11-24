@@ -77,6 +77,8 @@ interface HapticsFeedback {
  */
 data class UnlockTimeouts(
     val connectMs: Long = 8_000,
+    /** 按 `door.mac` 直连的预算。这个地址还没被验证过，比缓存地址的预算短。 */
+    val directConnectMs: Long = 6_000,
     val seedMs: Long = 5_000,
     val ackMs: Long = 20_000,
     val retryDelayMs: Long = 300,
