@@ -1,6 +1,5 @@
 package com.xavior.baiyunkeys.ui.diagnostics
 
-import android.content.ClipData
 import android.content.Context
 import android.location.LocationManager
 import android.os.Build
@@ -32,8 +31,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.ClipEntry
-import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -57,6 +54,7 @@ import com.xavior.baiyunkeys.ui.components.CardHeader
 import com.xavior.baiyunkeys.ui.components.QuietButton
 import com.xavior.baiyunkeys.ui.theme.BaiyunDimens
 import com.xavior.baiyunkeys.ui.theme.LocalBaiyunPalette
+import com.xavior.baiyunkeys.util.rememberClipboardWriter
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
@@ -76,7 +74,7 @@ fun DiagnosticsScreen(onBack: () -> Unit) {
     val context = LocalContext.current
     val container = remember(context) { (context.applicationContext as App).container }
     val scope = rememberCoroutineScope()
-    val clipboard = LocalClipboard.current
+    val clipboard = rememberClipboardWriter()
 
     val bleState by container.ble.state.collectAsState()
     val doorState by container.doors.state.collectAsState()
@@ -142,10 +140,11 @@ fun DiagnosticsScreen(onBack: () -> Unit) {
 
     fun copyDiagnostics() {
         val text = buildDiagnostics(bleState, environment, selected, hits.values)
-        scope.launch {
-            clipboard.setClipEntry(ClipEntry(ClipData.newPlainText("白云钥匙诊断", text)))
+        message = if (clipboard("白云钥匙诊断", text)) {
+            "诊断信息已复制（${hits.size} 台设备），可以贴到 issue 里"
+        } else {
+            "复制失败，可以截图代替"
         }
-        message = "诊断信息已复制（${hits.size} 台设备），可以贴到 issue 里"
     }
 
     val probe = remember {
@@ -223,19 +222,16 @@ fun DiagnosticsScreen(onBack: () -> Unit) {
                 }
             }
 
-            if (settingsTarget != null || hits.isNotEmpty()) {
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    if (settingsTarget != null) {
-                        QuietButton(
-                            title = "去设置",
-                            onClick = { BlePermissions.openSettings(context, settingsTarget) },
-                            tint = palette.danger,
-                        )
-                    }
-                    if (hits.isNotEmpty()) {
-                        QuietButton(title = "复制诊断信息", onClick = { copyDiagnostics() }, tint = palette.info)
-                    }
+            // 「复制诊断信息」任何时候都要有：什么都没扫到、定位或权限有问题时，恰恰最需要它
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                if (settingsTarget != null) {
+                    QuietButton(
+                        title = "去设置",
+                        onClick = { BlePermissions.openSettings(context, settingsTarget) },
+                        tint = palette.danger,
+                    )
                 }
+                QuietButton(title = "复制诊断信息", onClick = { copyDiagnostics() }, tint = palette.info)
             }
 
             scanError?.let { Text(it, color = palette.danger, fontSize = 12.sp) }

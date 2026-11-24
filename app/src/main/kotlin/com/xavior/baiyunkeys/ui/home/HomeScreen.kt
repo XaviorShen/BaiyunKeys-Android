@@ -1,6 +1,5 @@
 package com.xavior.baiyunkeys.ui.home
 
-import android.content.ClipData
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
@@ -27,8 +26,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.ClipEntry
-import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -48,6 +45,7 @@ import com.xavior.baiyunkeys.ui.components.QuietButton
 import com.xavior.baiyunkeys.ui.components.UnlockButton
 import com.xavior.baiyunkeys.ui.theme.BaiyunDimens
 import com.xavior.baiyunkeys.ui.theme.LocalBaiyunPalette
+import com.xavior.baiyunkeys.util.rememberClipboardWriter
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import kotlinx.coroutines.delay
@@ -87,7 +85,7 @@ fun HomeScreen(
     onToggleElderMode: () -> Unit,
 ) {
     val palette = LocalBaiyunPalette.current
-    val clipboard = LocalClipboard.current
+    val clipboard = rememberClipboardWriter()
     val scope = rememberCoroutineScope()
 
     Column(
@@ -204,11 +202,11 @@ fun HomeScreen(
         // 运行日志
         if (logs.isNotEmpty() && !hideLogs) {
             var expanded by remember { mutableStateOf(false) }
-            var copied by remember { mutableStateOf(false) }
-            LaunchedEffect(copied) {
-                if (copied) {
+            var copiedOk by remember { mutableStateOf<Boolean?>(null) }
+            LaunchedEffect(copiedOk) {
+                if (copiedOk != null) {
                     delay(1_500)
-                    copied = false
+                    copiedOk = null
                 }
             }
             BaiyunCard {
@@ -220,19 +218,20 @@ fun HomeScreen(
                     CardHeader(title = "运行日志", subtitle = "${logs.size} 行")
                     Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                         // 界面上只展开最后 40 行；要把日志发给别人排查，得能整份拷走
-                        QuietButton(title = if (copied) "已复制" else "复制", onClick = {
-                            scope.launch {
-                                clipboard.setClipEntry(
-                                    ClipEntry(
-                                        ClipData.newPlainText(
-                                            "白云钥匙运行日志",
-                                            logs.joinToString("\n") { it.format() },
-                                        ),
-                                    ),
+                        QuietButton(
+                            title = when (copiedOk) {
+                                true -> "已复制"
+                                false -> "复制失败"
+                                null -> "复制"
+                            },
+                            onClick = {
+                                copiedOk = clipboard(
+                                    "白云钥匙运行日志",
+                                    logs.joinToString("\n") { it.format() },
                                 )
-                            }
-                            copied = true
-                        })
+                            },
+                            tint = if (copiedOk == false) palette.danger else null,
+                        )
                         QuietButton(title = if (expanded) "收起" else "展开", onClick = { expanded = !expanded })
                     }
                 }
