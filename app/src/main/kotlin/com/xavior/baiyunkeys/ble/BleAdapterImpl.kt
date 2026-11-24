@@ -23,6 +23,8 @@ import android.content.pm.PackageManager
 import android.location.LocationManager
 import android.os.Build
 import androidx.core.content.ContextCompat
+import com.baiyunkeys.core.protocol.BleGattProps
+import com.baiyunkeys.core.protocol.BleUuids
 import com.baiyunkeys.core.unlock.BleAdapter
 import com.baiyunkeys.core.unlock.BleService
 import com.baiyunkeys.core.unlock.BleSession
@@ -53,7 +55,8 @@ import kotlin.coroutines.resumeWithException
  * 关键点（对应方案 §4.3）：
  * - 前台扫描**不按服务过滤**，靠 MAC / 蓝牙名匹配；后台才带服务 UUID
  * - 连接用 `TRANSPORT_LE`，8s 超时
- * - 服务发现后选「同一服务里同时有 read + write 特征」的那个
+ * - 服务发现后选「同一服务里同时有 read + write 特征」的那个，已知厂商服务优先
+ * - 订阅时按特征属性写通知值或指示值（三个参考实现的一致做法）
  * - GATT 133 错误由 [AndroidBleSession] 记日志、由编排器重试
  * - Android 10 扫描前必须确认**系统定位服务已开启**，否则扫不到任何设备
  */
@@ -427,8 +430,9 @@ internal class AndroidBleSession(
             ?: throw IllegalStateException("蓝牙服务发现超时")
         if (services.isEmpty()) return@withLock ServiceDiscovery.NoServices
 
-        // 只认「同一个服务里同时有 read + write」的那个，兼容服务 UUID 未知的门锁
-        for (service in services) {
+        // 只认「同一个服务里同时有 read + write」的那个，兼容服务 UUID 未知的门锁；
+        // 已知的厂商服务排在前面，其余保持原顺序
+        for (service in BleUuids.vendorFirst(services) { it.uuid }) {
             val characteristics = service.characteristics.orEmpty()
             val read = characteristics.firstOrNull {
                 it.properties and BluetoothGattCharacteristic.PROPERTY_READ != 0
@@ -472,11 +476,13 @@ internal class AndroidBleSession(
                 throw IllegalStateException("订阅通知失败 $uuid")
             }
 
-            // 写 CCCD 才会真正收到通知；有的门锁没有 CCCD，忽略即可
+            // 写 CCCD 才会真正收到通知；有的门锁没有 CCCD，忽略即可。
+            // 写哪个值按特征属性选：只支持指示的特征写了通知值会被拒绝，回执就收不到
+            val enable = BleGattProps.cccdValue(characteristic.properties) ?: return@withLock
             val cccd = characteristic.getDescriptor(CCCD_UUID) ?: return@withLock
             val deferred = CompletableDeferred<Unit>()
             descriptorDeferred = deferred
-            writeDescriptor(gatt, cccd, BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE)
+            writeDescriptor(gatt, cccd, enable)
             withTimeoutOrNull(SUBSCRIBE_TIMEOUT_MS) { deferred.await() }
         }
     }
