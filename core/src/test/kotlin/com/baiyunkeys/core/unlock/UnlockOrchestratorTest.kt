@@ -176,7 +176,7 @@ class UnlockOrchestratorTest {
         )
 
         assertFalse(result.success)
-        assertTrue(result.message, result.message.contains("扫描超时"))
+        assertTrue(result.message, result.message.contains("没有发现任何蓝牙设备"))
         assertEquals(1, r.adapter.scanCalls)
         // 直连优先：扫描之前先有一次失败的直连尝试
         assertEquals(1, r.adapter.connectedTo.size)

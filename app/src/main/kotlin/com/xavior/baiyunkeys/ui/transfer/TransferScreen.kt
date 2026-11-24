@@ -40,6 +40,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import android.content.ClipData
 import com.baiyunkeys.core.model.DoorConfig
+import com.baiyunkeys.core.model.MacOrigin
 import com.baiyunkeys.core.text.DoorTextExporter
 import com.baiyunkeys.core.text.DoorTextParser
 import com.xavior.baiyunkeys.qr.QrCodec
@@ -62,6 +63,8 @@ import kotlinx.coroutines.withContext
 @Composable
 fun TransferScreen(
     doors: List<DoorConfig>,
+    /** 进这一页时带进来的说明，比如扫码导入的结果；没有就传 null。 */
+    notice: String? = null,
     onImport: (List<DoorConfig>) -> Unit,
     onOpenScanner: () -> Unit,
     onBack: () -> Unit,
@@ -144,6 +147,14 @@ fun TransferScreen(
                 color = if (pasted.isNotBlank() && parsed.isEmpty()) palette.danger else palette.textSecondary,
                 fontSize = 12.sp,
             )
+
+            // 从 iOS 复刻版导入的数据里常有「按蓝牙名反推的 MAC」：导入前就说清楚它在安卓上的限制
+            MacOrigin.importNotice(parsed)?.let { text ->
+                Text(text, color = palette.danger, fontSize = 11.sp)
+            }
+            notice?.let { text ->
+                Text(text, color = palette.textSecondary, fontSize = 12.sp)
+            }
 
             FilledButton(
                 title = if (parsed.isEmpty()) "导入" else "导入 ${parsed.size} 条",

@@ -16,4 +16,18 @@ object MacOrigin {
         if (compact.length != 12 || name.length < 11) return false
         return compact.startsWith("000") && compact.substring(4) == name.substring(3, 11)
     }
+
+    /**
+     * 导入的门禁里有推导值 MAC 时，返回给用户看的提醒；没有则返回 null。
+     *
+     * 这种 MAC 在 iOS 上够用（握手只吃后 4 字节），但在安卓上既匹配不上也没法直连，
+     * 只能靠扫描和蓝牙名。从 iOS 复刻版扫码导入的数据里很常见：那边的编辑器会自动反推。
+     */
+    fun importNotice(doors: List<DoorConfig>): String? {
+        val derived = doors.count { looksDerivedFromName(it.mac, it.bluetoothName) }
+        if (derived == 0) return null
+        return "有 $derived 条门禁的 MAC 是按蓝牙名反推的（`00:0` 开头），不是真实地址。" +
+            "开锁不受影响，但安卓版没法不扫描直接连，只能靠蓝牙名匹配；" +
+            "补填真实 MAC（官方 App 里的 MAC_NUM）后可以直接连。"
+    }
 }

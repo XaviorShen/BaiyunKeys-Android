@@ -49,6 +49,7 @@ import com.baiyunkeys.core.crypto.Sm2Gm
 import com.baiyunkeys.core.deeplink.UnlockCommand
 import com.baiyunkeys.core.deeplink.UnlockLink
 import com.baiyunkeys.core.model.DoorConfig
+import com.baiyunkeys.core.model.MacOrigin
 import com.baiyunkeys.core.settings.AppSettings
 import com.baiyunkeys.core.settings.FetchMethod
 import com.baiyunkeys.core.settings.ThemeMode
@@ -265,6 +266,9 @@ private fun MainContent(container: AppContainer, settings: AppSettings) {
     var tab by remember { mutableStateOf(Tab.Home) }
     var route by remember { mutableStateOf<Route?>(null) }
 
+    // 扫码导入后带回搬运页显示的一句结果（比如「有 N 条的 MAC 是按蓝牙名反推的」）
+    var transferNotice by remember { mutableStateOf<String?>(null) }
+
     val effectiveTab = if (settings.elderMode) Tab.Home else tab
 
     // 更新检测：等偏好真正读出来再跑，否则 DataStore 的初始默认值会让节流误判成「从没检查过」
@@ -394,9 +398,13 @@ private fun MainContent(container: AppContainer, settings: AppSettings) {
                         val state by container.doors.state.collectAsState()
                         TransferScreen(
                             doors = state.items,
+                            notice = transferNotice,
                             onImport = { parsed -> container.doors.merge(parsed) },
                             onOpenScanner = { route = Route.QrScan },
-                            onBack = { route = null },
+                            onBack = {
+                                transferNotice = null
+                                route = null
+                            },
                         )
                     }
 
@@ -411,7 +419,12 @@ private fun MainContent(container: AppContainer, settings: AppSettings) {
                     Route.QrScan -> QrScannerScreen(
                         onResult = { text ->
                             val parsed = com.baiyunkeys.core.text.DoorTextParser.parse(text)
-                            if (parsed.isNotEmpty()) container.doors.merge(parsed)
+                            if (parsed.isNotEmpty()) {
+                                container.doors.merge(parsed)
+                                transferNotice = MacOrigin.importNotice(parsed)
+                            } else {
+                                transferNotice = "没识别到完整条目（MAC 与 Key 都得有），可以回到搬运页粘贴文本再试"
+                            }
                             route = Route.Transfer
                         },
                         onBack = { route = null },
@@ -475,11 +488,13 @@ private fun MainContent(container: AppContainer, settings: AppSettings) {
 @Composable
 private fun HomeTab(container: AppContainer, settings: AppSettings, actions: ConfigActions) {
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
     val state by container.doors.state.collectAsState()
     val phase by container.unlock.phase.collectAsState()
     val statusText by container.unlock.statusText.collectAsState()
     val logs by container.unlock.logs.collectAsState()
     val bleState by container.ble.state.collectAsState()
+    val settingsNeeded by container.unlock.settingsNeeded.collectAsState()
     val history by container.historyStore.records.collectAsState()
 
     HomeScreen(
@@ -490,6 +505,7 @@ private fun HomeTab(container: AppContainer, settings: AppSettings, actions: Con
         logs = logs,
         history = history,
         bluetoothState = bleState,
+        settingsNeeded = settingsNeeded,
         loadFailed = container.doors.loadFailed,
         hideSensitive = settings.hideSensitive,
         lockDoorSelector = settings.elderMode && settings.elderLocksDoorSelector,
@@ -509,6 +525,7 @@ private fun HomeTab(container: AppContainer, settings: AppSettings, actions: Con
             }
         },
         onCancel = { container.unlock.cancel() },
+        onOpenSettings = { target -> BlePermissions.openSettings(context, target) },
         onSelect = actions.onSelect,
         onEdit = actions.onEdit,
         onAdd = actions.onAdd,

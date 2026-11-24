@@ -1,5 +1,6 @@
 package com.xavior.baiyunkeys.ui.home
 
+import android.content.ClipData
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
@@ -17,6 +18,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -25,12 +27,15 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.ClipEntry
+import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.baiyunkeys.core.model.DoorConfig
 import com.baiyunkeys.core.unlock.BleState
+import com.baiyunkeys.core.unlock.SettingsTarget
 import com.baiyunkeys.core.unlock.UnlockLog
 import com.baiyunkeys.core.unlock.UnlockPhase
 import com.baiyunkeys.core.unlock.UnlockRecord
@@ -62,6 +67,8 @@ fun HomeScreen(
     logs: List<UnlockLog>,
     history: List<UnlockRecord>,
     bluetoothState: BleState,
+    /** 失败原因是缺权限或定位没开时，非 null：界面据此给「去设置」的出口。 */
+    settingsNeeded: SettingsTarget?,
     loadFailed: Boolean,
     hideSensitive: Boolean,
     lockDoorSelector: Boolean = false,
@@ -70,6 +77,7 @@ fun HomeScreen(
     onUnlock: () -> Unit,
     onQuickUnlock: () -> Unit,
     onCancel: () -> Unit,
+    onOpenSettings: (SettingsTarget) -> Unit,
     onSelect: (String) -> Unit,
     onEdit: (DoorConfig) -> Unit,
     onAdd: () -> Unit,
@@ -77,6 +85,8 @@ fun HomeScreen(
     onToggleElderMode: () -> Unit,
 ) {
     val palette = LocalBaiyunPalette.current
+    val clipboard = LocalClipboard.current
+    val scope = rememberCoroutineScope()
 
     Column(
         modifier = Modifier
@@ -152,8 +162,18 @@ fun HomeScreen(
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     if (phase.isBusy) {
                         QuietButton(title = "取消", onClick = onCancel, tint = palette.danger)
-                    } else if (doors.size > 1 && !lockDoorSelector) {
-                        QuietButton(title = "快速模式", onClick = onQuickUnlock, tint = palette.info)
+                    } else {
+                        // 缺权限或定位没开：给一个出口，不用用户自己去翻设置
+                        if (settingsNeeded != null) {
+                            QuietButton(
+                                title = "去设置",
+                                onClick = { onOpenSettings(settingsNeeded) },
+                                tint = palette.danger,
+                            )
+                        }
+                        if (doors.size > 1 && !lockDoorSelector) {
+                            QuietButton(title = "快速模式", onClick = onQuickUnlock, tint = palette.info)
+                        }
                     }
                     QuietButton(title = "编辑", onClick = { onEdit(selected) })
                 }
@@ -170,6 +190,13 @@ fun HomeScreen(
         // 运行日志
         if (logs.isNotEmpty() && !hideLogs) {
             var expanded by remember { mutableStateOf(false) }
+            var copied by remember { mutableStateOf(false) }
+            LaunchedEffect(copied) {
+                if (copied) {
+                    delay(1_500)
+                    copied = false
+                }
+            }
             BaiyunCard {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -177,7 +204,23 @@ fun HomeScreen(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     CardHeader(title = "运行日志", subtitle = "${logs.size} 行")
-                    QuietButton(title = if (expanded) "收起" else "展开", onClick = { expanded = !expanded })
+                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        // 界面上只展开最后 40 行；要把日志发给别人排查，得能整份拷走
+                        QuietButton(title = if (copied) "已复制" else "复制", onClick = {
+                            scope.launch {
+                                clipboard.setClipEntry(
+                                    ClipEntry(
+                                        ClipData.newPlainText(
+                                            "白云钥匙运行日志",
+                                            logs.joinToString("\n") { it.format() },
+                                        ),
+                                    ),
+                                )
+                            }
+                            copied = true
+                        })
+                        QuietButton(title = if (expanded) "收起" else "展开", onClick = { expanded = !expanded })
+                    }
                 }
                 if (expanded) {
                     Spacer(Modifier.height(2.dp))

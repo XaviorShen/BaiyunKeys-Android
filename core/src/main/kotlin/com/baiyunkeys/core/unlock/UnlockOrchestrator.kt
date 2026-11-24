@@ -84,6 +84,13 @@ class UnlockOrchestrator(
     private val _bluetoothIssue = MutableStateFlow<String?>(null)
     val bluetoothIssue: StateFlow<String?> = _bluetoothIssue.asStateFlow()
 
+    /**
+     * 界面需要把用户引去哪个系统设置页：缺蓝牙权限，或定位服务没开。
+     * null 表示不需要；下一次开锁时清空。
+     */
+    private val _settingsNeeded = MutableStateFlow<SettingsTarget?>(null)
+    val settingsNeeded: StateFlow<SettingsTarget?> = _settingsNeeded.asStateFlow()
+
     // MARK: - 内部状态
 
     private val busy = AtomicBoolean(false)
@@ -202,6 +209,15 @@ class UnlockOrchestrator(
                 runAttempt(request, options)
             } catch (e: CancellationException) {
                 throw e
+            } catch (e: BlePermissionException) {
+                _settingsNeeded.value = SettingsTarget.BluetoothPermission
+                Outcome.Retryable(e.message ?: "缺少蓝牙权限")
+            } catch (e: LocationServiceDisabledException) {
+                _settingsNeeded.value = SettingsTarget.LocationService
+                Outcome.Retryable(locationOffMessage(request.primaryDoor))
+            } catch (e: ScanStartFailedException) {
+                // 系统已经拒绝了这次扫描，自动重试只会撞得更狠，直接结束
+                Outcome.ProtocolFailure(e.message ?: "扫描启动失败")
             } catch (e: Exception) {
                 Outcome.Retryable(e.message ?: "开锁流程异常（${e::class.simpleName}）")
             }
@@ -266,8 +282,10 @@ class UnlockOrchestrator(
         if (options.silent) return Outcome.SilentAbort("静默模式无缓存设备，跳过")
 
         // ③ 扫描
-        val match = scanFor(request, options)
-            ?: return Outcome.Retryable("扫描超时，未找到门锁，请靠近后重试")
+        val match = when (val step = scanFor(request, options)) {
+            is ScanStep.Hit -> step.match
+            is ScanStep.Miss -> return Outcome.Retryable(scanMissMessage(step.seen, quick = request is Request.AnyOf))
+        }
         if (request is Request.AnyOf) {
             log("快速模式命中：${match.door.displayName}（RSSI ${match.hit.rssi}）")
         } else {
@@ -287,7 +305,7 @@ class UnlockOrchestrator(
 
     // MARK: - 扫描 / 连接
 
-    private suspend fun scanFor(request: Request, options: UnlockOptions): ScanMatch? {
+    private suspend fun scanFor(request: Request, options: UnlockOptions): ScanStep {
         _phase.value = UnlockPhase.Scanning
         _statusText.value = if (request is Request.AnyOf) "正在搜索附近门禁…" else "正在搜索门锁…"
         if (options.scanFilter.isEmpty) {
@@ -296,22 +314,51 @@ class UnlockOrchestrator(
             log("开始扫描（服务 UUID 过滤，后台模式），超时 ${options.scanTimeoutMs / 1000}s")
         }
 
-        return withTimeoutOrNull(options.scanTimeoutMs) {
+        val seen = HashSet<String>()
+        val match = withTimeoutOrNull(options.scanTimeoutMs) {
             ble.scan(options.scanFilter, allowDuplicates = false)
                 .mapNotNull { hit ->
+                    val firstSighting = seen.add(hit.deviceId)
+                    // 逐设备的日志只记前几台：周围设备一多，开头的行会被刷掉，而那正是排查要看的
+                    if (firstSighting && seen.size <= MAX_LISTED_DEVICES) {
+                        log("发现设备 ${hit.name ?: "未知"} RSSI=${hit.rssi}", LogLevel.DEBUG)
+                    }
                     val door = when (request) {
                         is Request.Single -> request.door.takeIf { DeviceMatcher.matches(hit, it) }
                         is Request.Cached -> request.door.takeIf { DeviceMatcher.matches(hit, it) }
                         is Request.AnyOf -> request.pool.firstOrNull { DeviceMatcher.matches(hit, it) }
                     }
-                    if (door == null) {
-                        log("发现设备 ${hit.name ?: "未知"} RSSI=${hit.rssi}", LogLevel.DEBUG)
-                        null
-                    } else {
-                        ScanMatch(door, hit)
-                    }
+                    if (door == null) null else ScanMatch(door, hit)
                 }
                 .firstOrNull()
+        }
+        return if (match == null) {
+            log("扫描结束：发现 ${seen.size} 台设备，没有匹配的", LogLevel.WARN)
+            ScanStep.Miss(seen.size)
+        } else {
+            ScanStep.Hit(match)
+        }
+    }
+
+    /**
+     * 没扫到门锁时，按「一台设备都没看到」还是「看到了但都不匹配」给不同的提示。
+     * [quick] 为 true 时是在候选池里找，不能说「这条门禁」。
+     */
+    private fun scanMissMessage(seen: Int, quick: Boolean): String {
+        if (seen == 0) {
+            return "附近没有发现任何蓝牙设备，请靠近门锁。若仍失败，部分机型需要打开系统定位服务才能扫描"
+        }
+        val what = if (quick) "候选里的任何一条门禁" else "这条门禁"
+        return "发现 $seen 台蓝牙设备，但没有一台与${what}匹配。可以到「配置 → 打开扫描面板」手动选择门锁"
+    }
+
+    /** 定位没开时，如果这条门禁的 MAC 是按蓝牙名反推的，顺带告诉用户补填真实 MAC 可以不走扫描。 */
+    private fun locationOffMessage(door: DoorConfig): String {
+        val base = LocationServiceDisabledException.MESSAGE
+        return if (MacOrigin.looksDerivedFromName(door.mac, door.bluetoothName)) {
+            "$base。这条门禁的 MAC 是按蓝牙名反推的，没法直连；在配置里补填真实 MAC 后，可以不扫描直接连接"
+        } else {
+            base
         }
     }
 
@@ -535,6 +582,7 @@ class UnlockOrchestrator(
         _maxAttempts.value = maxAttempts
         _attempt.value = 0
         _bluetoothIssue.value = null
+        _settingsNeeded.value = null
         _logs.value = emptyList()
     }
 
@@ -601,6 +649,12 @@ class UnlockOrchestrator(
 
     private data class ScanMatch(val door: DoorConfig, val hit: ScanHit)
 
+    /** 扫描这一步的结果：命中了，或没命中（带上一共看到几台设备）。 */
+    private sealed interface ScanStep {
+        data class Hit(val match: ScanMatch) : ScanStep
+        data class Miss(val seen: Int) : ScanStep
+    }
+
     private sealed interface ConnectResult {
         data class Ok(val session: BleSession) : ConnectResult
         data object Timeout : ConnectResult
@@ -622,5 +676,8 @@ class UnlockOrchestrator(
 
         /** 判定为「不支持直连」之后，多久以内不再先直连。 */
         const val DIRECT_RETRY_COOLDOWN_MS = 10 * 60_000L
+
+        /** 一次扫描里逐台写进日志的设备上限，超出的只计数。 */
+        private const val MAX_LISTED_DEVICES = 8
     }
 }

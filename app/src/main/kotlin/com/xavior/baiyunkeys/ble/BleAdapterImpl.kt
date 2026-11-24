@@ -29,8 +29,12 @@ import com.baiyunkeys.core.unlock.BleAdapter
 import com.baiyunkeys.core.unlock.BleService
 import com.baiyunkeys.core.unlock.BleSession
 import com.baiyunkeys.core.unlock.BleState
+import com.baiyunkeys.core.unlock.ConnectPermissionMissingException
+import com.baiyunkeys.core.unlock.LocationServiceDisabledException
 import com.baiyunkeys.core.unlock.ScanFilter
 import com.baiyunkeys.core.unlock.ScanHit
+import com.baiyunkeys.core.unlock.ScanPermissionMissingException
+import com.baiyunkeys.core.unlock.ScanStartFailedException
 import com.baiyunkeys.core.unlock.ServiceDiscovery
 import java.util.UUID
 import kotlinx.coroutines.CompletableDeferred
@@ -131,7 +135,8 @@ class BleAdapterImpl(private val context: Context) : BleAdapter {
             }
 
             override fun onScanFailed(errorCode: Int) {
-                close(IllegalStateException("扫描启动失败（错误码 $errorCode）"))
+                // 编排器认得这个类型：翻译成人话，并且不再自动重试
+                close(ScanStartFailedException(errorCode))
             }
         }
 
@@ -256,14 +261,6 @@ class BleAdapterImpl(private val context: Context) : BleAdapter {
         const val AD_TYPE_MANUFACTURER = 0xFF
     }
 }
-
-/** 缺少扫描权限。UI 据此弹「去设置」。 */
-class ScanPermissionMissingException : SecurityException("缺少蓝牙扫描权限")
-
-class ConnectPermissionMissingException : SecurityException("缺少蓝牙连接权限")
-
-/** Android 10/11 定位服务未开启（扫描会静默失败）。 */
-class LocationServiceDisabledException : IllegalStateException("系统定位服务未开启，Android 10 上无法扫描到蓝牙设备")
 
 /**
  * 一次 GATT 连接。
