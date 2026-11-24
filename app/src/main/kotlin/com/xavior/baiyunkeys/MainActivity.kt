@@ -279,17 +279,17 @@ private fun MainContent(container: AppContainer, settings: AppSettings) {
         container.update.checkOnLaunch()
     }
 
-    // ① 冷启动要一次 BLE 权限：Android 10 没有定位权限就扫不到任何设备，
-    //    而且这个提示只能由用户点，没法在扫描流程里静默解决。
+    // ① 冷启动要一次权限：Android 10 没有定位权限就扫不到任何设备，Android 13 起没有通知权限
+    //    小组件开锁就没有任何回报。这个提示只能由用户点，没法在扫描流程里静默解决。
     val context = LocalContext.current
     var askedPermission by remember { mutableStateOf(false) }
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions(),
     ) { }
     LaunchedEffect(Unit) {
-        if (!askedPermission && !BlePermissions.granted(context)) {
+        if (!askedPermission && BlePermissions.startupMissing(context)) {
             askedPermission = true
-            permissionLauncher.launch(BlePermissions.required())
+            permissionLauncher.launch(BlePermissions.startupRequests())
         }
     }
 
@@ -507,6 +507,7 @@ private fun HomeTab(container: AppContainer, settings: AppSettings, actions: Con
         bluetoothState = bleState,
         settingsNeeded = settingsNeeded,
         loadFailed = container.doors.loadFailed,
+        unreadableCount = container.doors.unreadableCount,
         hideSensitive = settings.hideSensitive,
         lockDoorSelector = settings.elderMode && settings.elderLocksDoorSelector,
         hideLogs = settings.elderMode && settings.elderHidesLogs,

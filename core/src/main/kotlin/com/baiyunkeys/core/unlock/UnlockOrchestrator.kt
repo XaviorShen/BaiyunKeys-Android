@@ -14,6 +14,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -110,12 +111,18 @@ class UnlockOrchestrator(
 
     /** 供 UI 调用：起一个可被 [cancel] 打断的开锁流程。 */
     fun unlockAsync(door: DoorConfig, options: UnlockOptions = UnlockOptions()): Job =
-        scope.launch { unlock(door, options) }.also { running = it }
+        scope.launch { unlock(door, options, cancellable = true) }
 
     /** 单门锁开锁。 */
-    suspend fun unlock(door: DoorConfig, options: UnlockOptions = UnlockOptions()): UnlockResult {
+    suspend fun unlock(door: DoorConfig, options: UnlockOptions = UnlockOptions()): UnlockResult =
+        unlock(door, options, cancellable = false)
+
+    private suspend fun unlock(door: DoorConfig, options: UnlockOptions, cancellable: Boolean): UnlockResult {
         if (!busy.compareAndSet(false, true)) return UnlockResult(false, BUSY_MESSAGE)
         return try {
+            // 抢到执行权之后才登记。此前是 unlockAsync 一启动就登记：流程正忙时它返回的 Job
+            // 一启动就结束，却把 running 指向了自己，「取消」按钮从此点不动真正的流程
+            if (cancellable) running = currentCoroutineContext()[Job]
             setSession(target = door, silent = options.silent, maxAttempts = options.maxAttempts)
             if (!door.isUsable) {
                 // 前置校验失败不写开锁记录（与 iOS 一致）

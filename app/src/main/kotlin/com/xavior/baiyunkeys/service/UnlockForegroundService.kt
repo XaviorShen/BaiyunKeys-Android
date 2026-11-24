@@ -12,6 +12,7 @@ import androidx.core.app.NotificationCompat
 import com.xavior.baiyunkeys.App
 import com.xavior.baiyunkeys.MainActivity
 import com.xavior.baiyunkeys.R
+import com.xavior.baiyunkeys.permissions.BlePermissions
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -39,6 +40,13 @@ class UnlockForegroundService : Service() {
         val container = (application as App).container
         val doorId = intent?.getStringExtra(EXTRA_DOOR_ID)
 
+        // Android 14 起，类型为 connectedDevice 的前台服务要求先有蓝牙权限，缺权限时 startForeground 会抛异常。
+        // 所以在进前台之前先检查：没权限就不进前台，提示一下，并把用户带回 App 去授权。
+        if (!BlePermissions.granted(this)) {
+            refuseForMissingPermission()
+            return START_NOT_STICKY
+        }
+
         startForeground(NOTIFICATION_ID, buildNotification("正在开锁…", null))
 
         scope.launch {
@@ -62,6 +70,24 @@ class UnlockForegroundService : Service() {
     override fun onDestroy() {
         scope.cancel()
         super.onDestroy()
+    }
+
+    /**
+     * 没有蓝牙权限时的收尾：不进前台，直接停掉自己。
+     *
+     * 结果通知可能因为没有通知权限而不显示，所以同时尝试把 App 带到前台；
+     * 个别系统会拦截后台启动界面，拦了也不抛给用户。
+     */
+    private fun refuseForMissingPermission() {
+        showResult(
+            title = "白云钥匙",
+            success = false,
+            message = "没有蓝牙权限，无法开锁。请打开 App 授予「附近设备」或定位权限",
+        )
+        runCatching {
+            startActivity(Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        }
+        stopSelf()
     }
 
     private fun showResult(title: String, success: Boolean, message: String) {

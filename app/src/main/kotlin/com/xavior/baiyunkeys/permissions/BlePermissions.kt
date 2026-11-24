@@ -29,6 +29,29 @@ object BlePermissions {
     }
 
     /**
+     * 冷启动时要申请的全部权限：蓝牙那几项，加上通知（Android 13 起）。
+     *
+     * 通知权限只为小组件的无头开锁：进度和结果都靠通知回报，没有这个权限，
+     * 点了小组件什么都不显示。
+     */
+    fun startupRequests(): Array<String> {
+        val notifications = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            arrayOf(Manifest.permission.POST_NOTIFICATIONS)
+        } else {
+            emptyArray()
+        }
+        return required() + notifications
+    }
+
+    /** 冷启动时还有没有权限要申请：蓝牙权限，或通知权限。 */
+    fun startupMissing(context: Context): Boolean = !granted(context) || !notificationsGranted(context)
+
+    fun notificationsGranted(context: Context): Boolean =
+        Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) ==
+            PackageManager.PERMISSION_GRANTED
+
+    /**
      * 把用户引到对应的系统设置页：应用详情（在那里开权限），或定位开关。
      *
      * Android 11 起，同一项权限被拒绝两次后系统不再弹窗，只能从这里手动打开。

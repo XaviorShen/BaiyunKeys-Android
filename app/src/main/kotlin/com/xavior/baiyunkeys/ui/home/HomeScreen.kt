@@ -70,6 +70,8 @@ fun HomeScreen(
     /** 失败原因是缺权限或定位没开时，非 null：界面据此给「去设置」的出口。 */
     settingsNeeded: SettingsTarget?,
     loadFailed: Boolean,
+    /** 有几条门禁的数据读不出来、被跳过了；0 表示全部正常。 */
+    unreadableCount: Int = 0,
     hideSensitive: Boolean,
     lockDoorSelector: Boolean = false,
     hideLogs: Boolean = false,
@@ -117,6 +119,18 @@ fun HomeScreen(
                 CardHeader(title = "门禁数据读不出来", tint = palette.danger)
                 Text(
                     "本机密钥已失效（换机 / 恢复备份 / 部分 ROM 会这样）。请在「配置」里重新录入，或导入文本恢复。",
+                    color = palette.textSecondary,
+                    fontSize = 12.sp,
+                )
+            }
+        }
+
+        if (unreadableCount > 0) {
+            BaiyunCard {
+                CardHeader(title = "有 $unreadableCount 条门禁读不出来", tint = palette.danger)
+                Text(
+                    "这几条的数据无法识别，已先跳过，其余门禁不受影响。原始数据另存了一份，没有被覆盖；" +
+                        "重新导入这几条即可恢复。",
                     color = palette.textSecondary,
                     fontSize = 12.sp,
                 )
